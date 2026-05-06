@@ -26,7 +26,6 @@
     text-shadow: 2px 2px 1px #64551b86, 0 0 10px #d6b94566;
     display: flex;
     align-items: center;
-    letter-spacing: 2px;
     gap: 10px;
   }
 
@@ -42,11 +41,8 @@
     user-select: none;
   }
 
-  #gameCanvas {
-    display: block;
-  }
+  #gameCanvas { display: block; }
 
-  /* HUD superpuesto */
   #hud {
     position: absolute;
     top: 14px;
@@ -56,13 +52,11 @@
     gap: 8px;
     pointer-events: none;
   }
-
   #hud img {
     width: 32px;
     height: 32px;
     filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.4));
   }
-
   #scoreDisplay {
     font-family: 'Fredoka One', cursive;
     font-size: 28px;
@@ -86,6 +80,58 @@
     transition: opacity 0.5s;
   }
 
+  /* Pantalla de inicio */
+  #startScreen {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 40, 80, 0.78);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    z-index: 10;
+  }
+  #startPanel {
+    background: #fffbe6;
+    border: 5px solid #f5c842;
+    border-radius: 24px;
+    padding: 32px 36px;
+    text-align: center;
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #startEmoji { font-size: 48px; line-height: 1; }
+  #startTitle {
+    font-family: 'Fredoka One', cursive;
+    font-size: 32px;
+    color: #f5a623;
+    line-height: 1.1;
+  }
+  #startSubtitle {
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #555;
+    line-height: 1.5;
+  }
+  #startBtn {
+    margin-top: 6px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 48px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+  }
+  #startBtn:hover  { background: #43a047; transform: scale(1.04); }
+  #startBtn:active { transform: scale(0.97); }
+
   p.sub {
     color: #64551b63;
     font-family: 'Nunito', sans-serif;
@@ -97,20 +143,32 @@
 </head>
 <body>
 
-<h1>🥕 ¡Salta y Atrapa! - Nivel 1 🥕</h1>
+<h1>🥕 ¡Salta y Atrapa! — Nivel 1 🥕</h1>
 
 <div id="gameWrapper">
   <canvas id="gameCanvas"></canvas>
+
   <div id="hud">
     <img id="carrotIcon" src="img/carrot.png" alt="puntos">
     <span id="scoreDisplay">0 / 10</span>
   </div>
-  <div id="hint">¡Hacé clic sobre el conejo para que salte!</div>
+
+  <div id="hint">¡Haz clic sobre el conejo para que salte!</div>
+
+  <div id="startScreen">
+    <div id="startPanel">
+      <div id="startEmoji">🥕</div>
+      <div id="startTitle">¡Salta y Atrapa!</div>
+      <div id="startSubtitle">Haz clic sobre el conejo para hacerlo saltar<br>y atrapar las monedas.</div>
+      <button id="startBtn">¡Iniciar!</button>
+    </div>
+  </div>
 </div>
-<p class="sub">Clic sobre el conejo → salta → ¡atrapá las monedas!</p>
+
+<p class="sub">Haz clic sobre el conejo → salta → ¡atrapa las monedas!</p>
 
 <script>
-// ─── Canvas setup ─────────────────────────────────────────────
+// ─── Canvas ───────────────────────────────────────────────────
 const canvas  = document.getElementById('gameCanvas');
 const ctx     = canvas.getContext('2d');
 const hint    = document.getElementById('hint');
@@ -123,30 +181,31 @@ document.getElementById('gameWrapper').style.width  = W + 'px';
 document.getElementById('gameWrapper').style.height = H + 'px';
 
 // ─── Constantes ───────────────────────────────────────────────
-const GROUND_H    = 70;           // altura del tile de suelo
-const GROUND_Y    = H - GROUND_H; // Y donde empieza el suelo
-const TILE_W      = 70;           // ancho del tile grassMid
-
+const GROUND_H    = 70;
+const GROUND_Y    = H - GROUND_H;
+const TILE_W      = 70;
 const BUNNY_W     = 82;
 const BUNNY_H     = 116;
-const BUNNY_X     = 100;
-const BUNNY_FOOT  = GROUND_Y;     // Y de los pies del conejo parado
-
-const GRAVITY     = 0.52;
-const JUMP_FORCE  = -13.5;
+const BUNNY_FOOT  = GROUND_Y;
+// Gravedad y salto en px/s (independiente de fps)
+const GRAVITY_S   = 2700;   // ≈ 0.52 × 60 × 60
+const JUMP_S      = -980;   // ≈ -13.5 × 60
 const WIN_SCORE   = 10;
-
-const COIN_SIZE   = 44;           // tamaño al dibujar monedas
-const COIN_Y_BASE = GROUND_Y - BUNNY_H - 60; // altura monedas (cabeza del conejo)
+const COIN_SIZE   = 44;
+const COIN_Y_BASE = GROUND_Y - BUNNY_H - 60;
+// Velocidades de monedas en px/s (versión 2 usaba 2.0–3.8 px/frame × 60)
+const COIN_SPEED_MIN = 350; // ≈ 2.0 × 60
+const COIN_SPEED_MAX = 500; // ≈ 3.8 × 60
+// Tiempos de spawn en ms
+const SPAWN_FIRST_MS = 1500;
+const SPAWN_MIN_MS   = 1000;
+const SPAWN_MAX_MS   = 1500;
 
 // ─── Assets ───────────────────────────────────────────────────
 const imgs = {};
 const toLoad = [
-  'bunny1_ready', 'bunny1_jump',
-  'grassMid',
-  'cloud1', 'cloud3',
-  'gold_1', 'silver_1', 'bronze_1',
-  'carrot'
+  'bunny1_ready','bunny1_jump','grassMid',
+  'cloud1','cloud3','gold_1','silver_1','bronze_1','carrot'
 ];
 let loaded = 0;
 
@@ -154,25 +213,21 @@ function loadAssets(cb) {
   toLoad.forEach(name => {
     const img = new Image();
     img.src = `img/${name}.png`;
-    img.onload = () => { loaded++; if (loaded === toLoad.length) cb(); };
+    img.onload  = () => { loaded++; if (loaded === toLoad.length) cb(); };
     img.onerror = () => { loaded++; if (loaded === toLoad.length) cb(); };
     imgs[name] = img;
   });
 }
 
-// ─── Estado del juego ─────────────────────────────────────────
-let score, gameOver, objects, particles, frameCount, nextSpawn;
-let hintVisible = true;
+// ─── Estado ───────────────────────────────────────────────────
+let score, gameOver, objects, particles;
+let lastTimestamp = null;
+let nextSpawnAt   = null;
+let gameStarted   = false;
+let hintVisible   = true;
 
-let bunny = {
-  x: BUNNY_X,
-  y: BUNNY_FOOT - BUNNY_H,
-  vy: 0,
-  onGround: true,
-  img: 'bunny1_ready'
-};
+let bunny = { x: 100, y: 0, vy: 0, onGround: true };
 
-// Nubes decorativas (estáticas)
 const clouds = [
   { x: 80,  y: 55,  img: 'cloud1', w: 110 },
   { x: 300, y: 35,  img: 'cloud3', w: 100 },
@@ -181,41 +236,44 @@ const clouds = [
   { x: 620, y: 30,  img: 'cloud1', w: 105 },
 ];
 
+// ─── Reset ────────────────────────────────────────────────────
 function resetGame() {
-  score      = 0;
-  gameOver   = false;
-  objects    = [];
-  particles  = [];
-  frameCount = 0;
-  bunny.y    = BUNNY_FOOT - BUNNY_H;
-  bunny.vy   = 0;
+  score         = 0;
+  gameOver      = false;
+  objects       = [];
+  particles     = [];
+  lastTimestamp = null;
+  nextSpawnAt   = null;
+  gameStarted   = false;
+  bunny.x       = 100;
+  bunny.y       = BUNNY_FOOT - BUNNY_H;
+  bunny.vy      = 0;
   bunny.onGround = true;
-  bunny.img  = 'bunny1_ready';
-  scheduleSpawn();
+  hint.style.opacity = '1';
+  hint.style.display = 'block';
+  hintVisible   = true;
+  document.getElementById('startScreen').style.display = 'flex';
   updateHUD();
 }
 
 // ─── Spawn ────────────────────────────────────────────────────
-function scheduleSpawn() {
-  // Primera moneda: espera entre 100 y 160 frames
-  nextSpawn = frameCount + 100 + Math.floor(Math.random() * 60);
-}
-
-function spawnCoin() {
-  const types   = ['gold_1', 'silver_1', 'bronze_1'];
-  const weights = [2, 3, 4]; // bronze más frecuente, gold más raro
+function spawnCoin(now) {
+  const types   = ['gold_1','silver_1','bronze_1'];
+  const weights = [2, 3, 4];
   const total   = weights.reduce((a,b) => a+b, 0);
   let r = Math.random() * total, t = 0, type = types[0];
   for (let i = 0; i < types.length; i++) {
     t += weights[i];
     if (r < t) { type = types[i]; break; }
   }
-  const speed = 1.8 + Math.random() * 1.8;
+  const speed = COIN_SPEED_MIN + Math.random() * (COIN_SPEED_MAX - COIN_SPEED_MIN);
   const y     = COIN_Y_BASE - Math.random() * 24;
   objects.push({ x: W + 40, y, type, speed, angle: 0, size: COIN_SIZE });
-  // Siguiente moneda: entre 90 y 190 frames
-  nextSpawn = frameCount + 90 + Math.floor(Math.random() * 100);
+  nextSpawnAt = now + SPAWN_MIN_MS + Math.random() * (SPAWN_MAX_MS - SPAWN_MIN_MS);
 }
+
+// ─── HUD ──────────────────────────────────────────────────────
+function updateHUD() { scoreEl.textContent = score + ' / ' + WIN_SCORE; }
 
 // ─── Dibujo ───────────────────────────────────────────────────
 function drawSky() {
@@ -246,14 +304,12 @@ function drawGround() {
 
 function drawBunny() {
   const imgKey = bunny.onGround ? 'bunny1_ready' : 'bunny1_jump';
-  // Sombra bajo el conejo
   const shadowAlpha = bunny.onGround ? 0.25 : 0.10;
   const shadowW     = bunny.onGround ? BUNNY_W - 10 : BUNNY_W - 20;
   ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
   ctx.beginPath();
   ctx.ellipse(bunny.x + BUNNY_W/2, GROUND_Y + 6, shadowW/2, 7, 0, 0, Math.PI*2);
   ctx.fill();
-  // Conejo (ligeramente rotado cuando salta)
   ctx.save();
   if (!bunny.onGround) {
     const rot = bunny.vy < 0 ? -0.08 : 0.08;
@@ -270,9 +326,7 @@ function drawCoins() {
   objects.forEach(o => {
     ctx.save();
     ctx.translate(o.x, o.y);
-    // Rotación en Y simulada con escaleX (efecto "moneda girando")
-    const scaleX = Math.cos(o.angle);
-    ctx.scale(scaleX, 1);
+    ctx.scale(Math.cos(o.angle), 1);
     ctx.drawImage(imgs[o.type], -o.size/2, -o.size/2, o.size, o.size);
     ctx.restore();
   });
@@ -286,10 +340,10 @@ function drawParticles() {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.font = `bold ${22 + (1-alpha)*6}px 'Fredoka One', cursive`;
-    ctx.fillStyle = p.color;
+    ctx.fillStyle   = p.color;
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-    ctx.lineWidth = 3;
-    ctx.textAlign = 'center';
+    ctx.lineWidth   = 3;
+    ctx.textAlign   = 'center';
     ctx.strokeText(p.text, p.x, p.y - rise);
     ctx.fillText(p.text,   p.x, p.y - rise);
     ctx.restore();
@@ -298,54 +352,43 @@ function drawParticles() {
 }
 
 function drawWinScreen() {
-  // Overlay
   ctx.fillStyle = 'rgba(10,40,80,0.72)';
   ctx.fillRect(0, 0, W, H);
 
-  // Panel redondeado
   ctx.fillStyle = '#fffbe6';
   ctx.beginPath();
-  ctx.roundRect(W/2 - 180, H/2 - 110, 360, 220, 24);
+  ctx.roundRect(W/2 - 200, H/2 - 110, 400, 220, 24);
   ctx.fill();
   ctx.strokeStyle = '#f5c842';
   ctx.lineWidth = 5;
   ctx.stroke();
 
   ctx.textAlign = 'center';
-
-  // Emoji + texto
-  ctx.font = "52px 'Fredoka One', cursive";
+  ctx.font = "48px 'Fredoka One', cursive";
   ctx.fillStyle = '#f5a623';
-  ctx.fillText('¡Ganaste!', W/2, H/2 - 48);
+  ctx.fillText('🎉 ¡Ganaste! 🎉', W/2, H/2 - 44);
 
-  ctx.font = "bold 20px 'Nunito', sans-serif";
+  ctx.font = "bold 19px 'Nunito', sans-serif";
   ctx.fillStyle = '#555';
-  ctx.fillText('¡Atrapaste ' + WIN_SCORE + ' monedas!', W/2, H/2 - 12);
+  ctx.fillText('¡Atrapaste ' + WIN_SCORE + ' monedas!', W/2, H/2 - 8);
 
-  // Botón
   ctx.fillStyle = '#4caf50';
   ctx.beginPath();
-  ctx.roundRect(W/2 - 110, H/2 + 18, 220, 54, 14);
+  ctx.roundRect(W/2 - 120, H/2 + 22, 240, 54, 14);
   ctx.fill();
   ctx.fillStyle = 'white';
   ctx.font = "24px 'Fredoka One', cursive";
-  ctx.fillText('¡Jugar de nuevo!', W/2, H/2 + 52);
+  ctx.fillText('¡Jugar de nuevo!', W/2, H/2 + 57);
 
   ctx.textAlign = 'left';
 }
 
-// ─── HUD ──────────────────────────────────────────────────────
-function updateHUD() {
-  scoreEl.textContent = score + ' / ' + WIN_SCORE;
-}
-
 // ─── Colisión ─────────────────────────────────────────────────
 function checkCollision(o) {
-  // Hitbox del conejo (zona superior — cabeza/torso)
-  const bx = bunny.x + 8,       by = bunny.y;
-  const bw = BUNNY_W - 16,      bh = BUNNY_H * 0.6;
-  const ox = o.x - o.size*0.55, oy = o.y - o.size*0.55;
-  const ow = o.size * 1.1,      oh = o.size * 1.1;
+  const bx = bunny.x + 8,         by = bunny.y;
+  const bw = BUNNY_W - 16,        bh = BUNNY_H * 0.6;
+  const ox = o.x - o.size * 0.55, oy = o.y - o.size * 0.55;
+  const ow = o.size * 1.1,        oh = o.size * 1.1;
   return bx < ox+ow && bx+bw > ox && by < oy+oh && by+bh > oy;
 }
 
@@ -355,38 +398,44 @@ function coinColor(type) {
   return '#CD7F32';
 }
 
-// ─── Update ───────────────────────────────────────────────────
-function update() {
-  if (gameOver) return;
-  frameCount++;
+// ─── Update con delta time ─────────────────────────────────────
+function update(now) {
+  if (gameOver || !gameStarted) return;
 
-  if (frameCount >= nextSpawn) spawnCoin();
+  // dt en segundos, máx 100ms para evitar saltos si la pestaña estuvo inactiva
+  const dt = lastTimestamp === null ? 0 : Math.min((now - lastTimestamp) / 1000, 0.1);
+  lastTimestamp = now;
 
-  // Física
+  // Spawn
+  if (nextSpawnAt === null) {
+    nextSpawnAt = now + SPAWN_FIRST_MS + Math.random() * 500;
+  } else if (now >= nextSpawnAt) {
+    spawnCoin(now);
+  }
+
+  // Física del salto
   if (!bunny.onGround) {
-    bunny.vy += GRAVITY;
-    bunny.y  += bunny.vy;
+    bunny.vy += GRAVITY_S * dt;
+    bunny.y  += bunny.vy * dt;
     if (bunny.y >= BUNNY_FOOT - BUNNY_H) {
-      bunny.y = BUNNY_FOOT - BUNNY_H;
-      bunny.vy = 0;
+      bunny.y        = BUNNY_FOOT - BUNNY_H;
+      bunny.vy       = 0;
       bunny.onGround = true;
     }
   }
 
   // Monedas
   objects = objects.filter(o => {
-    o.x    -= o.speed;
-    o.angle += 0.07; // giro de moneda
+    o.x    -= o.speed * dt;
+    o.angle += 4.2 * dt;  // ≈ 0.07 rad/frame a 60fps
     if (checkCollision(o)) {
       score++;
       updateHUD();
       particles.push({
-        x: o.x, y: o.y,
-        text: '+1 🌟',
-        color: coinColor(o.type),
-        life: 38, maxLife: 38
+        x: o.x, y: o.y, text: '+1 🌟',
+        color: coinColor(o.type), life: 38, maxLife: 38
       });
-      if (score >= WIN_SCORE) { gameOver = true; }
+      if (score >= WIN_SCORE) gameOver = true;
       return false;
     }
     return o.x > -60;
@@ -396,23 +445,20 @@ function update() {
 // ─── Loop ─────────────────────────────────────────────────────
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  drawSky();
-  drawClouds();
-  drawGround();
-  drawCoins();
-  drawBunny();
-  drawParticles();
+  drawSky(); drawClouds(); drawGround();
+  drawCoins(); drawBunny(); drawParticles();
   if (gameOver) drawWinScreen();
 }
 
-function loop() {
-  update();
+function loop(timestamp) {
+  update(timestamp);
   draw();
   requestAnimationFrame(loop);
 }
 
 // ─── Input ────────────────────────────────────────────────────
 canvas.addEventListener('click', e => {
+  if (!gameStarted) return;
   const rect   = canvas.getBoundingClientRect();
   const scaleX = W / rect.width;
   const scaleY = H / rect.height;
@@ -420,21 +466,16 @@ canvas.addEventListener('click', e => {
   const cy     = (e.clientY - rect.top)  * scaleY;
 
   if (gameOver) {
-    // ¿Clic en botón "Jugar de nuevo"?
-    const bx = W/2 - 110, by = H/2 + 18, bw = 220, bh = 54;
-    if (cx > bx && cx < bx+bw && cy > by && cy < by+bh) {
-      resetGame();
-    }
+    const bx = W/2-120, by = H/2+22, bw = 240, bh = 54;
+    if (cx > bx && cx < bx+bw && cy > by && cy < by+bh) resetGame();
     return;
   }
 
-  // ¿Clic sobre el conejo?
   const hitX = cx > bunny.x - 8 && cx < bunny.x + BUNNY_W + 8;
   const hitY = cy > bunny.y - 8 && cy < bunny.y + BUNNY_H + 8;
   if (hitX && hitY && bunny.onGround) {
-    bunny.vy = JUMP_FORCE;
+    bunny.vy = JUMP_S;
     bunny.onGround = false;
-    // Ocultar hint después del primer salto
     if (hintVisible) {
       hint.style.opacity = '0';
       setTimeout(() => hint.style.display = 'none', 500);
@@ -443,9 +484,8 @@ canvas.addEventListener('click', e => {
   }
 });
 
-// Cursor pointer cuando está sobre el conejo
 canvas.addEventListener('mousemove', e => {
-  if (gameOver) return;
+  if (!gameStarted || gameOver) return;
   const rect   = canvas.getBoundingClientRect();
   const scaleX = W / rect.width;
   const scaleY = H / rect.height;
@@ -456,10 +496,17 @@ canvas.addEventListener('mousemove', e => {
   canvas.style.cursor = (hitX && hitY && bunny.onGround) ? 'pointer' : 'default';
 });
 
+// ─── Botón de inicio ──────────────────────────────────────────
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('startScreen').style.display = 'none';
+  gameStarted   = true;
+  lastTimestamp = null;
+});
+
 // ─── Inicio ───────────────────────────────────────────────────
 loadAssets(() => {
   resetGame();
-  loop();
+  requestAnimationFrame(loop);
 });
 </script>
 </body>
